@@ -1,0 +1,135 @@
+# Docker Compose - Ambiente ETL AdventureWorks (sem tabs)
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.2
+  environment:
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__FERNET_KEY: 'c1bUyo5K0SWfPRZ4PZ7xqJLDqZB6e4Eye8mQeOcqCcs='
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres:5432/airflow
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.session,airflow.api.auth.backend.basic_auth'
+    AIRFLOW_UID: 50000
+    _PIP_ADDITIONAL_REQUIREMENTS: "psycopg2-binary pymssql"
+    DW_HOST: adventureworks_dw
+    DW_DB: dw_adventureworks
+    DW_USER: dw_user
+    DW_PASSWORD: dw_password
+    MSSQL_HOST: mssql
+    MSSQL_DB: AdventureWorks2022
+    MSSQL_USER: sa
+    MSSQL_PASSWORD: Strong!Passw0rd
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./airflow/requirements:/requirements
+  networks:
+    - airflow
+  depends_on:
+    - airflow-postgres
+    - redis
+
+services:
+  airflow-postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_airflow_data:/var/lib/postgresql/data
+    networks:
+      - airflow
+
+  adventureworks_dw:
+    container_name: adventureworks_dw
+    image: postgres:15
+    environment:
+      POSTGRES_USER: dw_user
+      POSTGRES_PASSWORD: dw_password
+      POSTGRES_DB: dw_adventureworks
+    volumes:
+      - postgres_dw_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    networks:
+      - airflow
+
+  redis:
+    image: redis:7
+    networks:
+      - airflow
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+
+  airflow-flower:
+    <<: *airflow-common
+    command: celery flower
+    ports:
+      - "5555:5555"
+
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      SA_PASSWORD: "Strong!Passw0rd"
+    ports:
+      - "1433:1433"
+    volumes:
+      - ./mssql/backup:/var/opt/mssql/backup
+      - ./mssql/scripts:/var/opt/mssql/scripts
+    networks:
+      - airflow
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "SA", "-P", "Strong!Passw0rd", "-Q", "SELECT 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - airflow
+    depends_on:
+      - adventureworks_dw
+
+  airflow-init:
+    <<: *airflow-common
+    command: bash -c "airflow db migrate && airflow users create --username admin --firstname Admin --lastname User --role Admin --email admin@example.com --password admin || true"
+
+networks:
+  airflow:
+    driver: bridge
+
+volumes:
+  postgres_airflow_data:
+  postgres_dw_data:
