@@ -1,296 +1,152 @@
-# 📊 Projeto ETL AdventureWorks - Resumo Executivo
+# Projeto ETL - AdventureWorks Data Warehouse
 
-## ✅ Status do Projeto: CONCLUÍDO
+Pipeline de extração, transformação e carga de dados do banco AdventureWorks2022 para um Data Warehouse dimensional usando Apache Airflow.
 
----
+## O que é
 
-## 📋 Checklist de Entregas
+Sistema automatizado de ETL que processa dados de vendas do SQL Server AdventureWorks2022 e carrega em um Data Warehouse PostgreSQL com modelo dimensional (esquema estrela).
 
-### 1. Infraestrutura ✅
-- [x] Docker Compose com 8 containers funcionais
-- [x] SQL Server 2022 com AdventureWorks2022 restaurado
-- [x] PostgreSQL 15 como Data Warehouse
-- [x] Apache Airflow 2.9.2 (webserver, scheduler, worker, flower)
-- [x] Redis como message broker
-- [x] Dependências Python instaladas (pymssql, psycopg2)
+O pipeline extrai 12 tabelas de origem, aplica transformações de negócio e carrega em 1 tabela fato e 6 dimensões, possibilitando análise de 121.317 transações de vendas totalizando R$ 109,8 milhões.
 
-### 2. Modelagem Dimensional ✅
-- [x] 1 Tabela Fato: `fact_sales` (121.317 registros)
-- [x] 6 Dimensões:
-  - [x] `dim_date` (6.575 registros)
-  - [x] `dim_customer` (19.820 registros)
-  - [x] `dim_product` (504 registros)
-  - [x] `dim_territory` (10 registros)
-  - [x] `dim_sales_person` (17 registros)
-  - [x] `dim_promotion` (16 registros)
+## Arquitetura
 
-### 3. Pipeline ETL ✅
-- [x] DAG Airflow com 8 tasks
-- [x] Extração de 12 tabelas do SQL Server
-- [x] Inferência automática de tipos
-- [x] Staging no PostgreSQL
-- [x] Transformações com cálculo de margem/desconto
-- [x] Carga nas dimensões (UPSERT Type 1)
-- [x] Carga na fato de vendas
-- [x] Tempo total: 77 segundos
+- **Origem**: SQL Server 2022 (AdventureWorks2022)
+- **Destino**: PostgreSQL 15 (Data Warehouse dimensional)
+- **Orquestração**: Apache Airflow com executor Celery
+- **Infraestrutura**: Docker Compose (8 containers)
+- **Linguagem**: Python 3.12 com pandas e SQLAlchemy
 
-### 4. KPIs de Negócio ✅
-- [x] KPI 1: Receita Total (R$ 109.845.995,59)
-- [x] KPI 2: Margem Bruta (R$ 9.371.356,77 / 8,53%)
-- [x] KPI 3: Ticket Médio (R$ 3.491,05)
-- [x] KPI 4: Clientes Ativos (0 - dados históricos)
-- [x] KPI 5: Top 10 Produtos por Receita
-- [x] KPI 6: Participação Promoções (100%)
-- [x] KPI 7: Margem por Categoria
-- [x] KPI 8: Performance Vendedores vs Quota
-- [x] KPI 9: Crescimento Mensal (sem dados recentes)
-- [x] KPI 10: Margem por Região
-
-### 5. Qualidade de Dados ✅
-- [x] Testes de integridade referencial
-- [x] Testes de completude (nulos)
-- [x] Identificação de anomalias (margens negativas)
-- [x] Análise de distribuição de descontos
-- [x] Contagem de registros por tabela
-
-### 6. Documentação ✅
-- [x] Dicionário de Dados (`docs/dicionario_dados.md`)
-- [x] Resultados do ETL (`docs/resultados_etl.md`)
-- [x] Artigo Acadêmico Completo (`docs/artigo_academico.md`)
-- [x] Scripts SQL (create_dw_schema.sql, kpi_queries.sql, data_quality_checks.sql)
-- [x] README com instruções de uso
-
----
-
-## 🎯 Principais Resultados
-
-### Volumes de Dados
-- **121.317** transações de vendas processadas
-- **19.820** clientes únicos
-- **504** produtos ativos
-- **R$ 109,8 milhões** em receita total
-
-### Performance
-- **77 segundos** de tempo total de ETL
-- **1.575 registros/segundo** de throughput
-- **67 segundos** na extração (87% do tempo)
-- **8,5 segundos** na transformação do fato
-
-### Insights de Negócio
-1. **Mountain Bikes** dominam receita (5 dos top 10 produtos)
-2. **Margem de 8,53%** indica negócio de alto volume
-3. **49,8% de vendas sem vendedor** revelam canal online/direto
-4. **Austrália** tem margem 5x maior que EUA
-5. **24% das vendas** têm margem negativa (alertas de qualidade)
-
----
-
-## 📁 Estrutura de Arquivos
+### Containers
 
 ```
-C:\Users\Mugiwara\Documents\Pessoal\Projetos\ETL\
-│
-├── docker-compose.yml              # Orquestração completa (8 containers)
-├── requirements.txt                # Dependências Python
-│
-├── airflow/
-│   └── dags/
-│       └── etl_adventureworks_dw.py  # DAG principal (extração + transformação)
-│
-├── sql/
-│   ├── create_dw_schema.sql        # DDL do Data Warehouse
-│   ├── kpi_queries.sql             # 10 consultas de KPI
-│   └── data_quality_checks.sql     # Testes de qualidade
-│
-├── mssql/
-│   └── backup/
-│       └── AdventureWorks2022.bak  # Backup do banco fonte (201 MB)
-│
-└── docs/
-    ├── dicionario_dados.md         # Documentação de tabelas/colunas
-    ├── resultados_etl.md           # Relatório completo de resultados
-    └── artigo_academico.md         # Artigo com Introdução/Desenvolvimento/Conclusão
+mssql              - SQL Server 2022 (porta 1433)
+adventureworks_dw  - PostgreSQL 15 (porta 5433)
+airflow-webserver  - Interface web Airflow (porta 8080)
+airflow-scheduler  - Scheduler de DAGs
+airflow-worker     - Worker para execução de tasks
+airflow-flower     - Monitor de tasks (porta 5555)
+redis              - Message broker
+postgres           - Metabase do Airflow
 ```
 
----
+## Modelo de Dados
 
-## 🚀 Como Executar
+### Tabela Fato
+- `fact_sales` - 121.317 registros de vendas (2011-2014)
+
+### Dimensões
+- `dim_date` - 6.575 datas (2008-2025)
+- `dim_customer` - 19.820 clientes
+- `dim_product` - 504 produtos
+- `dim_territory` - 10 territórios
+- `dim_sales_person` - 17 vendedores
+- `dim_promotion` - 16 promoções
+
+## Performance
+
+- Tempo total: 77 segundos
+- Throughput: 1.575 registros/segundo
+- Extração: 67s (87% do tempo)
+- Transformação: 8,5s
+
+## Como usar
 
 ### Pré-requisitos
-- Docker Desktop instalado e rodando
+- Docker Desktop
 - 8 GB RAM disponível
 - 10 GB espaço em disco
 
-### Comandos Principais
+### Iniciar ambiente
 
 ```powershell
-# 1. Subir toda a stack
+# Subir todos os containers
 docker compose up -d
 
-# 2. Aguardar inicialização (~30 segundos)
+# Aguardar inicialização (~30 segundos)
 Start-Sleep -Seconds 30
+```
 
-# 3. Acessar Airflow Web UI
-# Abrir: http://localhost:8080
-# Login: admin / admin
+### Acessar Airflow
 
-# 4. Disparar DAG manualmente
+URL: http://localhost:8080  
+Login: `admin`  
+Senha: `admin`
+
+### Executar pipeline
+
+```powershell
+# Via comando
 docker exec etl-airflow-webserver-1 airflow dags trigger etl_adventureworks_dw
 
-# 5. Verificar status
-docker exec etl-airflow-webserver-1 airflow dags list-runs -d etl_adventureworks_dw
+# Ou pela interface web:
+# 1. Acessar http://localhost:8080
+# 2. Localizar DAG "etl_adventureworks_dw"
+# 3. Clicar no botão "play" para disparar
+```
 
-# 6. Consultar resultados
+### Consultar dados
+
+```powershell
+# PostgreSQL Data Warehouse (porta 5433)
+docker exec adventureworks_dw psql -U dw_user -d dw_adventureworks
+
+# Exemplo de query
 docker exec adventureworks_dw psql -U dw_user -d dw_adventureworks -c "SELECT COUNT(*) FROM dw.fact_sales"
 ```
 
-### Acessos
+## Estrutura do projeto
 
-| Serviço | URL | Credenciais |
-|---------|-----|-------------|
-| Airflow Webserver | http://localhost:8080 | admin / admin |
-| Airflow Flower | http://localhost:5555 | N/A |
-| PostgreSQL DW | localhost:5433 | dw_user / dw_password |
-| SQL Server | localhost:1433 | sa / Strong!Passw0rd |
-
----
-
-## 🔧 Problemas Resolvidos Durante o Desenvolvimento
-
-### 1. XCom Size Limitation ❌→✅
-**Problema:** Extração retornava 121K registros via XCom, excedendo limite de memória  
-**Solução:** Combinação de extract + load em única função, escrevendo diretamente no PostgreSQL
-
-### 2. Case-Sensitive Column Names ❌→✅
-**Problema:** Staging criava colunas como `"CustomerID"` mas queries usavam `customerid`  
-**Solução:** Atualização de todas queries SQL para usar nomes quoted (PascalCase)
-
-### 3. Type Mismatch em COALESCE ❌→✅
-**Problema:** `COALESCE(text, 0)` falhava porque `SalesQuota` foi inferido como TEXT  
-**Solução:** `COALESCE(NULLIF(sp."SalesQuota",'')::NUMERIC(14,2), 0)`
-
-### 4. Incomplete Date Dimension ❌→✅
-**Problema:** `dim_date` só tinha 2023-2025, vendas eram de 2011-2014  
-**Solução:** Inserção manual de datas 2008-2022 (5.479 registros adicionais)
-
----
-
-## 📊 KPIs em Números
-
-| KPI | Valor | Insight |
-|-----|-------|---------|
-| Receita Total | R$ 109.845.995,59 | Volume expressivo no período |
-| Margem Bruta | R$ 9.371.356,77 (8,53%) | Margem baixa, alto volume |
-| Ticket Médio | R$ 3.491,05 | Produtos de alto valor |
-| Top Produto | Mountain-200 Black, 38 | R$ 4,4M sozinho |
-| Melhor Vendedor | Linda Mitchell | R$ 10,4M (4.147% da quota) |
-| Melhor Região (Margem) | Austrália | R$ 228 por venda |
-| Vendas Online | 60.398 (49,8%) | Sem vendedor associado |
-| Margens Negativas | 29.161 (24%) | Alerta de qualidade |
-
----
-
-## 🎓 Artigo Acadêmico
-
-O artigo completo está em `docs/artigo_academico.md` com as seguintes seções:
-
-### Estrutura
-1. **Resumo** (keywords, síntese)
-2. **Introdução**
-   - Contextualização sobre DW e BI
-   - Problema de pesquisa
-   - Objetivos (geral e 5 específicos)
-   - Justificativa
-3. **Desenvolvimento**
-   - Fundamentação teórica (Kimball, Inmon, Airflow)
-   - Metodologia (arquitetura, modelagem, pipeline)
-   - Resultados (volumes, KPIs, performance, qualidade)
-   - Discussão (validação, descobertas, limitações)
-4. **Considerações Finais**
-   - Síntese dos resultados
-   - Contribuições (acadêmicas, técnicas, práticas)
-   - Limitações do estudo
-   - Trabalhos futuros
-   - Conclusão
-5. **Referências** (5 fontes: Kimball, Inmon, Apache, Microsoft, Vassiliadis)
-
-### Destaques
-- **6.000+ palavras** de conteúdo técnico
-- **Tabelas e gráficos** de resultados
-- **Citações acadêmicas** formatadas (ABNT)
-- **Discussão crítica** de descobertas e anomalias
-- **Recomendações** para trabalhos futuros
-
----
-
-## 🔮 Próximos Passos Sugeridos
-
-### Performance (Curto Prazo)
-1. Implementar COPY bulk insert (reduzir 67s → ~10s)
-2. Adicionar índices nas tabelas staging
-3. Particionar fact_sales por ano
-
-### Funcionalidades (Médio Prazo)
-4. Implementar CDC para carga incremental
-5. Criar dimensão Sales Channel (Online/Retail/Direct)
-6. Adicionar SCD Type 2 para histórico de preços
-7. Dashboard BI (Power BI ou Metabase)
-
-### Governança (Longo Prazo)
-8. Implementar Apache Atlas para data lineage
-9. Alertas automáticos para margens <-30%
-10. Política de retenção (staging 7 dias, DW permanente)
-11. Auditoria de acessos ao DW
-12. API REST para consumo de KPIs
-
----
-
-## 📞 Suporte e Manutenção
-
-### Logs
-```powershell
-# Logs do Airflow Worker (onde executam as tasks)
-docker compose logs airflow-worker --tail=100
-
-# Logs do SQL Server
-docker compose logs mssql --tail=50
-
-# Logs do PostgreSQL DW
-docker compose logs adventureworks_dw --tail=50
+```
+.
+├── docker-compose.yml              # Orquestração dos containers
+├── requirements.txt                # Dependências Python
+├── airflow/
+│   ├── Dockerfile
+│   ├── dags/
+│   │   └── etl_adventureworks_dw.py    # DAG principal
+│   └── requirements/
+│       └── requirements.txt
+├── sql/
+│   ├── create_dw_schema.sql        # Estrutura do DW
+│   ├── kpi_queries.sql             # Consultas de análise
+│   └── data_quality_checks.sql     # Testes de qualidade
+└── mssql/
+    ├── backup/
+    │   └── AdventureWorks2022.bak  # Backup do banco origem
+    └── scripts/
+        └── restore_adventureworks.sql
 ```
 
-### Troubleshooting Comum
+## Principais descobertas
 
-**Problema:** Airflow não inicia  
-**Solução:** `docker compose down -v && docker compose up -d`
+Análise dos dados revelou:
 
-**Problema:** SQL Server unhealthy  
-**Solução:** Aguardar 60 segundos; checar senha `Strong!Passw0rd`
+- Mountain-200 Black, 38 é o produto top de vendas (R$ 4,4M)
+- 49,8% das vendas não têm vendedor associado (canal direto/online)
+- 24% das transações apresentam margem negativa
+- Tires and Tubes tem a maior margem (62,6%)
+- Descontos acima de 10% destroem lucratividade
 
-**Problema:** DAG não aparece na UI  
-**Solução:** Verificar sintaxe Python; checar logs do scheduler
+Scripts SQL com todas as análises estão em `sql/kpi_queries.sql`.
 
-**Problema:** Tabelas vazias no DW  
-**Solução:** Disparar DAG manualmente; verificar logs do worker
+## Problemas resolvidos
 
----
+Durante o desenvolvimento foram resolvidos:
 
-## ✨ Conclusão
+1. **XCom size limit**: Combinação de extract+load numa única função escrevendo direto no PostgreSQL
+2. **Case-sensitive columns**: Queries SQL atualizadas para usar nomes quoted (PascalCase)
+3. **Type mismatch em COALESCE**: Cast explícito de TEXT para NUMERIC
+4. **Dimensão data incompleta**: População manual de datas 2008-2022
 
-Este projeto demonstra **implementação completa de Data Warehouse** com:
-- ✅ Infraestrutura moderna (Docker, Airflow, PostgreSQL)
-- ✅ Modelagem dimensional otimizada (esquema estrela)
-- ✅ Pipeline ETL automatizado e robusto
-- ✅ 10 KPIs de negócio calculados e validados
-- ✅ Testes de qualidade automatizados
-- ✅ Artigo acadêmico completo (6.000+ palavras)
+## Tecnologias
 
-**Tecnologias:** Apache Airflow 2.9.2 | PostgreSQL 15 | SQL Server 2022 | Docker | Python 3.12  
-**Dados:** 121.317 transações | R$ 109,8 milhões | 2011-2014  
-**Performance:** 77 segundos | 1.575 registros/segundo  
+- Python 3.12
+- Apache Airflow 2.9.2
+- PostgreSQL 15
+- SQL Server 2022
+- Docker Compose
+- pandas, SQLAlchemy, psycopg2, pyodbc
 
----
+## Licença
 
-**Última atualização:** 22/11/2025  
-**Status:** ✅ Produção Ready  
-**Autor:** Sistema ETL AdventureWorks
+MIT
